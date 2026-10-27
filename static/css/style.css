@@ -1,0 +1,147 @@
+/* Custom styles for DomainFinder */
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #2b3035;
+    background-color: #f6f8fb;
+}
+
+/* Drag & Drop Area */
+.drop-zone {
+    border: 2px dashed #b9c2ce !important;
+    background-color: #f8fafc !important;
+    border-radius: 12px;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+    border-color: #0d6efd !important;
+    background-color: #eef5ff !important;
+}
+
+/* Stat Cards */
+.stat-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Nav Pills */
+.nav-pills .nav-link {
+    color: #495057;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+/* Table styling */
+.cursor-pointer {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable-th {
+    transition: background-color 0.15s ease;
+}
+
+.sortable-th:hover {
+    background-color: #e9ecef !important;
+    color: #0d6efd !important;
+}
+
+.sortable-th:hover .sort-icon {
+    color: #0d6efd !important;
+}
+
+.table thead th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    font-weight: 600;
+    border-bottom-width: 1px;
+    vertical-align: middle;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Status Row Highlights */
+.result-row.status-available {
+    background-color: #fdfefe;
+}
+
+.result-row.status-pending {
+    background-color: #fafbfc;
+}
+
+/* Badges */
+.badge.bg-success-subtle {
+    background-color: #d1e7dd !important;
+    color: #0f5132 !important;
+}
+
+.badge.bg-danger-subtle {
+    background-color: #f8d7da !important;
+    color: #842029 !important;
+}
+
+.badge.bg-secondary-subtle {
+    background-color: #e2e3e5 !important;
+    color: #41464b !important;
+}
+
+.badge.bg-info-subtle {
+    background-color: #cff4fc !important;
+    color: #055160 !important;
+}
+
+/* Progress bar animation */
+.progress-bar {
+    transition: width 0.25s ease;
+}
+
+/* Pagination */
+.pagination .page-link {
+    color: #495057;
+    border-radius: 6px;
+    margin: 0 2px;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.85rem;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+    font-weight: 600;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #adb5bd;
+    background-color: transparent;
+}
+
+/* Modal details */
+.modal-body .card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.modal-body .card-header {
+    font-size: 0.9rem;
+    padding: 0.65rem 1rem;
+}
