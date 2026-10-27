@@ -1,3 +1,18 @@
-# Added by cargo
-
+# Rust target build artifacts
 /target
+.cargo/
+
+# Binary executables
+*.exe
+*.pdb
+
+# Legacy Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Environment & IDE
+.env
+.vscode/
+.idea/
