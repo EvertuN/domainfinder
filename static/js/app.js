@@ -175,6 +175,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <i class="bi bi-x-circle-fill me-1"></i> Registrado
             </span>`;
         }
+        if (data.status === 'rate_limited') {
+            return `<span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2 py-1" title="${escapeHtml(data.details || '')}">
+                <i class="bi bi-shield-exclamation me-1 text-warning"></i> Limite Atingido
+            </span>`;
+        }
         return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1" title="${escapeHtml(data.details || '')}">
             <i class="bi bi-exclamation-triangle-fill me-1"></i> ${escapeHtml(data.status_label || 'Indefinido')}
         </span>`;
@@ -376,10 +381,10 @@ document.addEventListener('DOMContentLoaded', function () {
             // Renderiza a tabela inicial com placeholders (apenas 1 render, SEM PISCAR)
             applyFilterAndRender();
 
-            // Executa consultas concorrentes
+            // Executa consultas concorrentes com controle de taxa
             const total = domainList.length;
             let completed = 0;
-            const concurrency = 4;
+            const concurrency = 2;
             let index = 0;
 
             async function worker() {
@@ -777,6 +782,9 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (item.status === 'registered') {
             badgeEl.className = 'badge bg-danger fs-6';
             badgeEl.textContent = 'Registrado';
+        } else if (item.status === 'rate_limited') {
+            badgeEl.className = 'badge bg-warning text-dark fs-6';
+            badgeEl.textContent = 'Limite Atingido (Registro.br)';
         } else {
             badgeEl.className = 'badge bg-secondary fs-6';
             badgeEl.textContent = item.status_label || 'Indefinido';

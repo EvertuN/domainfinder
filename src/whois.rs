@@ -4,7 +4,8 @@ use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::time::timeout;
+use tokio::sync::Mutex;
+use tokio::time::{timeout, Instant};
 
 static DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$").unwrap()
@@ -41,15 +42,31 @@ static REDACTED_PATTERNS: &[&str] = &[
     "data protected",
 ];
 
+static RATE_LIMIT_PATTERNS: &[&str] = &[
+    "permissão negada",
+    "permissao negada",
+    "abuse@registro.br",
+    "query rate limit exceeded",
+    "quota exceeded",
+    "too many requests",
+    "access denied",
+];
+
+// Rate Limiter exclusivo para consultas ao Registro.br (.br)
+// Garante no mínimo 600ms entre requisições para evitar soft ban por IP
+static BR_RATE_LIMITER: LazyLock<Mutex<Instant>> = LazyLock::new(|| {
+    Mutex::new(Instant::now().checked_sub(Duration::from_secs(5)).unwrap_or_else(Instant::now))
+});
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WhoisResult {
     pub domain: String,
     #[serde(default)]
-    pub status: String,
+    pub status: String,            // "available", "registered", "rate_limited", "error", "invalid"
     #[serde(default)]
-    pub status_label: String,
+    pub status_label: String,      // "Disponível", "Registrado", "Limite Atingido", etc.
     #[serde(default)]
-    pub status_class: String,
+    pub status_class: String,      // "success", "danger", "warning", "secondary"
     #[serde(default)]
     pub owner: String,
     #[serde(default)]
@@ -120,6 +137,26 @@ pub fn is_valid_domain(d: &str) -> bool {
     DOMAIN_REGEX.is_match(d)
 }
 
+/// Pré-checagem de DNS: verifica se o domínio já possui IP ativo no DNS mundial
+/// Consultas DNS utilizam cache do resolver público e NUNCA tomam rate limit do Registro.br
+pub async fn check_dns_active(domain: &str) -> bool {
+    match timeout(Duration::from_millis(1500), tokio::net::lookup_host(format!("{domain}:80"))).await {
+        Ok(Ok(mut addrs)) => addrs.next().is_some(),
+        _ => false,
+    }
+}
+
+/// Aplica delay inteligente de no mínimo 600ms entre chamadas ao Registro.br
+pub async fn enforce_br_rate_limit() {
+    let mut last_query = BR_RATE_LIMITER.lock().await;
+    let min_interval = Duration::from_millis(600);
+    let elapsed = last_query.elapsed();
+    if elapsed < min_interval {
+        tokio::time::sleep(min_interval - elapsed).await;
+    }
+    *last_query = Instant::now();
+}
+
 fn get_whois_server(domain: &str) -> (&'static str, &'static str) {
     if domain.ends_with(".br") {
         ("whois.registro.br", "whois.registro.br:43")
@@ -185,6 +222,8 @@ pub async fn query_rdap(domain: &str) -> Option<(bool, String)> {
     if let Ok(res) = client.get(&url).send().await {
         if res.status() == reqwest::StatusCode::NOT_FOUND {
             return Some((true, "Domínio disponível (confirmado via RDAP).".to_string()));
+        } else if res.status() == reqwest::StatusCode::FORBIDDEN {
+            return Some((false, "PERMISSAO_NEGADA_RDAP".to_string()));
         } else if res.status().is_success() {
             let text = res.text().await.unwrap_or_default();
             return Some((false, text));
@@ -247,13 +286,53 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
         return empty;
     }
 
+    // 1. Pré-checagem de DNS em paralelo (não consome cota do WHOIS)
+    let dns_is_active = check_dns_active(&domain).await;
+
+    // 2. Se for domínio .br, aplica o rate limiter estrito (respeito às regras do NIC.br)
+    if domain.ends_with(".br") {
+        enforce_br_rate_limit().await;
+    }
+
     let (server_name, server_addr) = get_whois_server(&domain);
 
-    // 1. Tenta consulta TCP WHOIS direto
+    // 3. Consulta TCP WHOIS
     let mut whois_text = match query_tcp_whois(&domain, server_addr).await {
         Ok(txt) => txt,
         Err(_) => "".to_string(),
     };
+
+    let lower_text = whois_text.to_lowercase();
+
+    // 4. Detecção de Rate Limit / Permissão Negada pelo Registro.br
+    let is_rate_limited = RATE_LIMIT_PATTERNS.iter().any(|kw| lower_text.contains(kw));
+
+    if is_rate_limited {
+        // Se o WHOIS tomou rate limit mas o DNS está ativo: sabemos com 100% de certeza que está registrado!
+        if dns_is_active {
+            return WhoisResult {
+                domain: domain.clone(),
+                status: "registered".to_string(),
+                status_label: "Registrado (Via DNS)".to_string(),
+                status_class: "danger".to_string(),
+                registrar: if domain.ends_with(".br") { "Registro.br".to_string() } else { "Registro Oficial".to_string() },
+                country: if domain.ends_with(".br") { "BR".to_string() } else { "-".to_string() },
+                details: "Domínio ativo confirmado por resolução de DNS (Servidor WHOIS em rate-limit temporário).".to_string(),
+                raw_text: whois_text.chars().take(2500).collect(),
+                ..empty
+            };
+        } else {
+            return WhoisResult {
+                domain: domain.clone(),
+                status: "rate_limited".to_string(),
+                status_label: "Limite Atingido".to_string(),
+                status_class: "warning".to_string(),
+                details: "O Registro.br bloqueou temporariamente novas consultas deste IP. Aguarde alguns minutos.".to_string(),
+                raw_text: whois_text.chars().take(2500).collect(),
+                ..empty
+            };
+        }
+    }
 
     // Se o registrar informar um segundo servidor WHOIS, tenta consultá-lo
     if whois_text.contains("WHOIS Server:") {
@@ -279,8 +358,30 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
 
     // Se o WHOIS vier vazio ou falhar, tenta RDAP
     if whois_text.trim().is_empty() {
-        if let Some((is_available, _rdap_info)) = query_rdap(&domain).await {
-            if is_available {
+        if let Some((is_available, rdap_info)) = query_rdap(&domain).await {
+            if rdap_info == "PERMISSAO_NEGADA_RDAP" {
+                if dns_is_active {
+                    return WhoisResult {
+                        domain: domain.clone(),
+                        status: "registered".to_string(),
+                        status_label: "Registrado (Via DNS)".to_string(),
+                        status_class: "danger".to_string(),
+                        registrar: "Registro.br".to_string(),
+                        country: "BR".to_string(),
+                        details: "Confirmado ativo via DNS (RDAP com rate limit temporário).".to_string(),
+                        ..empty
+                    };
+                } else {
+                    return WhoisResult {
+                        domain: domain.clone(),
+                        status: "rate_limited".to_string(),
+                        status_label: "Limite Atingido".to_string(),
+                        status_class: "warning".to_string(),
+                        details: "O Registro.br bloqueou temporariamente novas consultas deste IP via RDAP.".to_string(),
+                        ..empty
+                    };
+                }
+            } else if is_available {
                 return WhoisResult {
                     domain: domain.clone(),
                     status: "available".to_string(),
@@ -305,7 +406,7 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
 
     let lower_text = whois_text.to_lowercase();
 
-    // 2. Checa se o texto indica disponibilidade
+    // 5. Checa se o texto indica disponibilidade
     for kw in AVAILABLE_PATTERNS {
         if lower_text.contains(kw) {
             return WhoisResult {
@@ -320,7 +421,7 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
         }
     }
 
-    // 3. Extrai campos do WHOIS
+    // 6. Extrai campos do WHOIS
     let mut owner = "-".to_string();
     let mut owner_id = "".to_string();
     let mut registrar = if domain.ends_with(".br") {
@@ -548,5 +649,21 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
         responsible_person: person,
         details: "Domínio atualmente ativo e registrado.".to_string(),
         raw_text: whois_text.chars().take(2500).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_dns_pre_check() {
+        // google.com sempre possui DNS ativo
+        let is_active = check_dns_active("google.com").await;
+        assert!(is_active);
+
+        // Domínio aleatório inexistente não possui DNS
+        let is_inactive = check_dns_active("dominio-totalmente-inexistente-xyz-987654321.com").await;
+        assert!(!is_inactive);
     }
 }
