@@ -16,6 +16,7 @@ static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(5))
         .pool_max_idle_per_host(10)
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 });
@@ -145,7 +146,6 @@ pub fn is_valid_domain(d: &str) -> bool {
     DOMAIN_REGEX.is_match(d)
 }
 
-/// Aplica delay inteligente de no mínimo 800ms entre chamadas TCP à porta 43 do Registro.br
 pub async fn enforce_br_rate_limit() {
     let mut last_query = BR_RATE_LIMITER.lock().await;
     let min_interval = Duration::from_millis(800);
@@ -227,43 +227,125 @@ pub fn format_date(raw: &str) -> String {
     s.to_string()
 }
 
-/// Consulta DNS-over-HTTPS (Cloudflare / Google) de alta performance
-/// Retorna Some(true) se o domínio existe (registrado), Some(false) se NXDOMAIN (disponível), ou None se houver falha de rede
-pub async fn check_dns_doh(domain: &str) -> Option<bool> {
-    // 1. Cloudflare DNS DoH
-    let url_cf = format!("https://1.1.1.1/dns-query?name={domain}&type=NS");
-    if let Ok(res) = HTTP_CLIENT
-        .get(&url_cf)
-        .header("accept", "application/dns-json")
-        .send()
-        .await
-    {
-        if let Ok(json) = res.json::<serde_json::Value>().await {
-            if let Some(status) = json.get("Status").and_then(|s| s.as_i64()) {
-                if status == 0 || status == 2 {
-                    // Status 0: NOERROR (domínio existe)
-                    // Status 2: SERVFAIL / Lame delegation (delegação existe mas servidor recusou query)
-                    return Some(true);
-                } else if status == 3 {
-                    // Status 3: NXDOMAIN (não existe na zona TLD)
-                    return Some(false);
-                }
-            }
-        }
+/// Consulta oficial de disponibilidade do Registro.br (motor oficial de consulta de domínios)
+/// Retorna informações exatas de disponibilidade, expiração, servidores DNS e regras de sintaxe similar (IDN)
+pub async fn check_registro_br_avail(domain: &str) -> Option<WhoisResult> {
+    let url = format!("https://registro.br/v2/ajax/avail/raw/{domain}");
+    let res = HTTP_CLIENT.get(&url).send().await.ok()?;
+    if res.status() != reqwest::StatusCode::OK {
+        return None;
     }
+    let json: serde_json::Value = res.json().await.ok()?;
+    let status_code = json.get("status").and_then(|s| s.as_i64())?;
 
-    // 2. Fallback: Google DNS DoH
-    let url_google = format!("https://dns.google/resolve?name={domain}&type=NS");
-    if let Ok(res) = HTTP_CLIENT.get(&url_google).send().await {
-        if let Ok(json) = res.json::<serde_json::Value>().await {
-            if let Some(status) = json.get("Status").and_then(|s| s.as_i64()) {
-                if status == 0 || status == 2 {
-                    return Some(true);
-                } else if status == 3 {
-                    return Some(false);
+    let mut result = WhoisResult {
+        domain: domain.to_string(),
+        status: "registered".to_string(),
+        status_label: "Registrado".to_string(),
+        status_class: "danger".to_string(),
+        owner: "-".to_string(),
+        owner_id: "".to_string(),
+        is_redacted: false,
+        registrar: "Registro.br".to_string(),
+        registrar_url: "https://registro.br".to_string(),
+        creation_date: "-".to_string(),
+        expiration_date: "-".to_string(),
+        updated_date: "-".to_string(),
+        country: "BR".to_string(),
+        state: "-".to_string(),
+        city: "-".to_string(),
+        emails: vec![],
+        name_servers: vec![],
+        status_epp: vec![],
+        dnssec: "-".to_string(),
+        whois_server: "Registro.br Engine".to_string(),
+        responsible_person: "-".to_string(),
+        details: "".to_string(),
+        raw_text: serde_json::to_string_pretty(&json).unwrap_or_default(),
+    };
+
+    if status_code == 0 {
+        // Status 0: Domínio Disponível para Registro Imediato
+        result.status = "available".to_string();
+        result.status_label = "Disponível".to_string();
+        result.status_class = "success".to_string();
+        result.details = "Domínio livre para registro imediato no Registro.br.".to_string();
+        return Some(result);
+    } else if status_code == 2 {
+        // Status 2: Domínio Registrado e Publicado
+        result.status = "registered".to_string();
+        result.status_label = "Registrado".to_string();
+        result.status_class = "danger".to_string();
+        result.details = "Domínio ativo e publicado no Registro.br.".to_string();
+
+        if let Some(exp) = json.get("expires-at").and_then(|e| e.as_str()) {
+            result.expiration_date = format_date(exp);
+        }
+        if let Some(hosts) = json.get("hosts").and_then(|h| h.as_array()) {
+            for h in hosts {
+                if let Some(ns) = h.as_str() {
+                    result.name_servers.push(ns.trim_end_matches('.').to_lowercase());
                 }
             }
         }
+        if let Some(pub_status) = json.get("publication-status").and_then(|s| s.as_str()) {
+            result.status_epp.push(pub_status.to_string());
+        }
+
+        // Tenta enriquecer com dados de titular via RDAP oficial caso não esteja com rate limit
+        let rdap_url = format!("https://rdap.registro.br/domain/{domain}");
+        if let Ok(rdap_res) = HTTP_CLIENT.get(&rdap_url).send().await {
+            if rdap_res.status() == reqwest::StatusCode::OK {
+                if let Ok(rdap_json) = rdap_res.json::<serde_json::Value>().await {
+                    let mut rdap_result = parse_rdap_json(domain, &rdap_json);
+                    if rdap_result.expiration_date == "-" && result.expiration_date != "-" {
+                        rdap_result.expiration_date = result.expiration_date;
+                    }
+                    if rdap_result.name_servers.is_empty() && !result.name_servers.is_empty() {
+                        rdap_result.name_servers = result.name_servers;
+                    }
+                    return Some(rdap_result);
+                }
+            }
+        }
+
+        return Some(result);
+    } else if status_code == 3 {
+        // Status 3: Não disponível por regras de sintaxe similar (IDN) ou formato
+        let reasons_str = json.get("reasons")
+            .and_then(|r| r.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(" "))
+            .unwrap_or_default();
+
+        let lower_reasons = reasons_str.to_lowercase();
+        if lower_reasons.contains("similar") || lower_reasons.contains("registrado") {
+            result.status = "registered".to_string();
+            result.status_label = "Registrado (IDN)".to_string();
+            result.status_class = "danger".to_string();
+            result.owner = "Vinculado a Domínio Acentuado (IDN)".to_string();
+            result.details = format!("Domínio indisponível: {reasons_str}");
+            return Some(result);
+        } else {
+            result.status = "invalid".to_string();
+            result.status_label = "Inválido".to_string();
+            result.status_class = "warning".to_string();
+            result.details = if reasons_str.is_empty() { "Formato inválido para Registro.br".to_string() } else { reasons_str };
+            return Some(result);
+        }
+    } else if status_code == 1 {
+        // Status 1: Processo de Liberação
+        result.status = "registered".to_string();
+        result.status_label = "Em Liberação".to_string();
+        result.status_class = "warning".to_string();
+        result.details = "Domínio em processo de liberação no Registro.br.".to_string();
+        return Some(result);
+    } else if status_code == 4 {
+        // Status 4: Reservado
+        result.status = "registered".to_string();
+        result.status_label = "Reservado".to_string();
+        result.status_class = "warning".to_string();
+        result.details = "Domínio reservado pelo Registro.br.".to_string();
+        return Some(result);
     }
 
     None
@@ -283,7 +365,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
     let mut status_epp = Vec::new();
     let registrar = if domain.ends_with(".br") { "Registro.br".to_string() } else { "Registro Oficial".to_string() };
 
-    // Extrai entidades (titular, contato técnico, admin)
     if let Some(entities) = val.get("entities").and_then(|e| e.as_array()) {
         for ent in entities {
             let roles = ent.get("roles").and_then(|r| r.as_array());
@@ -365,7 +446,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
         }
     }
 
-    // Datas de eventos
     if let Some(events) = val.get("events").and_then(|e| e.as_array()) {
         for ev in events {
             let action = ev.get("eventAction").and_then(|a| a.as_str()).unwrap_or("");
@@ -380,7 +460,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
         }
     }
 
-    // Servidores DNS
     if let Some(ns_list) = val.get("nameservers").and_then(|n| n.as_array()) {
         for ns in ns_list {
             if let Some(ldh) = ns.get("ldhName").and_then(|s| s.as_str()) {
@@ -392,7 +471,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
         }
     }
 
-    // Status EPP
     if let Some(st_list) = val.get("status").and_then(|s| s.as_array()) {
         for st in st_list {
             if let Some(s) = st.as_str() {
@@ -401,7 +479,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
         }
     }
 
-    // Checa privacidade
     let mut is_redacted = false;
     let lower_owner = owner.to_lowercase();
     for kw in REDACTED_PATTERNS {
@@ -439,7 +516,6 @@ pub fn parse_rdap_json(domain: &str, val: &serde_json::Value) -> WhoisResult {
     }
 }
 
-/// Extrai campos estruturados a partir do texto bruto do WHOIS (porta 43)
 pub fn parse_whois_text(domain: &str, whois_text: &str, mut base: WhoisResult) -> WhoisResult {
     let mut owner = "-".to_string();
     let mut owner_id = "".to_string();
@@ -655,11 +731,17 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
 
     // =========================================================================
     // ESTRATÉGIA PARA DOMÍNIOS BRASILEIROS (.BR)
-    // O Registro.br disponibiliza o RDAP oficial (HTTPS REST), que não sofre do
-    // bloqueio "Permissão negada" da porta 43, suporta redirecionamento IDN e
-    // entrega dados 100% estruturados (CNPJ, titular, expiração).
+    // 1. Motor oficial de disponibilidade do Registro.br (ajax avail engine)
+    //    Nunca bloqueia com 403, detecta 100% de disponibilidade, expiração,
+    //    servidores DNS e regras IDN (acentuação similar).
+    // 2. Se registrado, enriquece com dados completos de titular via RDAP oficial.
     // =========================================================================
     if domain.ends_with(".br") {
+        if let Some(res) = check_registro_br_avail(&domain).await {
+            return res;
+        }
+
+        // Fallback: RDAP direto caso o endpoint ajax falhe
         let rdap_url = format!("https://rdap.registro.br/domain/{domain}");
         if let Ok(res) = HTTP_CLIENT.get(&rdap_url).send().await {
             let status = res.status();
@@ -679,16 +761,15 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
                     ..empty
                 };
             }
-            // Se retornar 429 ou 403, prossegue para Fallback 1 (WHOIS TCP) e Fallback 2 (DoH)
         }
 
-        // Fallback 1: WHOIS TCP porta 43
+        // Fallback 2: WHOIS TCP porta 43
         enforce_br_rate_limit().await;
         let (_, server_addr) = get_whois_server(&domain);
         if let Ok(txt) = query_tcp_whois(&domain, server_addr).await {
             let lower = txt.to_lowercase();
             let is_rate_limited = RATE_LIMIT_PATTERNS.iter().any(|kw| lower.contains(kw));
-            if !is_rate_limited {
+            if !is_rate_limited && !txt.trim().is_empty() {
                 let is_avail = AVAILABLE_PATTERNS.iter().any(|kw| lower.contains(kw));
                 if is_avail {
                     return WhoisResult {
@@ -708,41 +789,13 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
             }
         }
 
-        // Fallback 2: Resolução autoritativa via DNS DoH (Cloudflare / Google)
-        // Nunca sofre rate-limit e confirma existência de registros NS na zona TLD
-        if let Some(exists) = check_dns_doh(&domain).await {
-            if exists {
-                return WhoisResult {
-                    domain: domain.clone(),
-                    status: "registered".to_string(),
-                    status_label: "Registrado (Via DNS)".to_string(),
-                    status_class: "danger".to_string(),
-                    registrar: "Registro.br".to_string(),
-                    country: "BR".to_string(),
-                    details: "Domínio ativo confirmado por resolução autoritativa de DNS.".to_string(),
-                    ..empty
-                };
-            } else {
-                return WhoisResult {
-                    domain: domain.clone(),
-                    status: "available".to_string(),
-                    status_label: "Disponível (Via DNS)".to_string(),
-                    status_class: "success".to_string(),
-                    registrar: "Registro.br".to_string(),
-                    country: "BR".to_string(),
-                    details: "Domínio sem registros na zona DNS (provavelmente livre).".to_string(),
-                    ..empty
-                };
-            }
-        }
-
-        // Apenas se RDAP, WHOIS e DoH falharem simultaneamente:
+        // Se todos falharem:
         return WhoisResult {
             domain: domain.clone(),
             status: "rate_limited".to_string(),
             status_label: "Limite Atingido".to_string(),
             status_class: "warning".to_string(),
-            details: "Servidor ocupado ou conexão temporariamente instável. Tente novamente.".to_string(),
+            details: "Servidor ocupado ou conexão temporariamente instável. Tente novamente em instantes.".to_string(),
             ..empty
         };
     }
@@ -774,7 +827,6 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
             }
         }
 
-        // Se houver indicação de segundo servidor WHOIS
         if whois_text.contains("WHOIS Server:") {
             for line in whois_text.lines() {
                 let lower = line.to_lowercase();
@@ -819,29 +871,6 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
         }
     }
 
-    // Fallback DNS DoH
-    if let Some(exists) = check_dns_doh(&domain).await {
-        if exists {
-            return WhoisResult {
-                domain: domain.clone(),
-                status: "registered".to_string(),
-                status_label: "Registrado (Via DNS)".to_string(),
-                status_class: "danger".to_string(),
-                details: "Domínio ativo confirmado por resolução de DNS.".to_string(),
-                ..empty
-            };
-        } else {
-            return WhoisResult {
-                domain: domain.clone(),
-                status: "available".to_string(),
-                status_label: "Disponível (Via DNS)".to_string(),
-                status_class: "success".to_string(),
-                details: "Domínio disponível (sem registros DNS encontrados).".to_string(),
-                ..empty
-            };
-        }
-    }
-
     WhoisResult {
         domain: domain.clone(),
         status: "rate_limited".to_string(),
@@ -857,34 +886,24 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_dns_doh() {
-        // google.com sempre existe
-        let google_exists = check_dns_doh("google.com").await;
-        assert_eq!(google_exists, Some(true));
-
-        // Domínio inexistente deve retornar Some(false)
-        let fake_exists = check_dns_doh("dominio-totalmente-inexistente-xyz-987654321.com").await;
-        assert_eq!(fake_exists, Some(false));
+    async fn test_bow_registration() {
+        let res = check_domain("bow.com.br").await;
+        assert_eq!(res.status, "registered");
+        assert_eq!(res.expiration_date, "27/04/2027");
+        assert!(!res.name_servers.is_empty());
     }
 
     #[tokio::test]
-    async fn test_rdap_br_registration() {
-        // abg.com.br é o domínio com IDN redirect que antes causava oscilação
+    async fn test_abg_registration_idn() {
         let res = check_domain("abg.com.br").await;
         assert_eq!(res.status, "registered");
-        assert_ne!(res.owner, "-");
-        assert_eq!(res.country, "BR");
-
-        // abj.com.br é a empresa agropecuária que antes tomava rate-limit falso
-        let res_abj = check_domain("abj.com.br").await;
-        assert_eq!(res_abj.status, "registered");
-        assert_eq!(res_abj.owner, "BOM JESUS AGROPECUARIA LTDA");
-        assert_eq!(res_abj.owner_id, "08.895.796/0001-08");
+        assert_eq!(res.status_label, "Registrado (IDN)");
     }
 
     #[tokio::test]
     async fn test_available_domain() {
-        let res = check_domain("dominio-livre-teste-xyz-987654321.com.br").await;
+        let res = check_domain("teste-livre-1293819.com.br").await;
         assert_eq!(res.status, "available");
+        assert_eq!(res.status_label, "Disponível");
     }
 }

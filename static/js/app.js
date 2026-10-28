@@ -567,8 +567,19 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnCancelScan) {
         btnCancelScan.addEventListener('click', () => {
             isCancelled = true;
-            btnCancelScan.disabled = true;
-            progressDetail.textContent = 'Interrompendo consultas...';
+            btnCancelScan.classList.add('d-none');
+            if (btnDismissProgress) btnDismissProgress.classList.remove('d-none');
+            if (progressSpinner) progressSpinner.classList.add('d-none');
+            progressText.innerHTML = '<i class="bi bi-pause-circle text-warning fs-5 me-1"></i> Verificação cancelada.';
+            progressDetail.textContent = 'Interrompendo consultas e finalizando...';
+            progressBar.className = 'progress-bar bg-warning';
+            progressPercentage.className = 'badge bg-warning text-dark fs-6 px-3';
+
+            // Esconde a notificação automaticamente após 2.5 segundos
+            if (progressHideTimer) clearTimeout(progressHideTimer);
+            progressHideTimer = setTimeout(() => {
+                progressSection.classList.add('d-none');
+            }, 2500);
         });
     }
 

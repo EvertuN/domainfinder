@@ -43,8 +43,12 @@ struct ExportCsvPayload {
     filter: Option<String>,
 }
 
-async fn index_handler() -> Html<&'static str> {
-    Html(include_str!("../templates/index.html"))
+async fn index_handler() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate".parse().unwrap());
+    headers.insert(header::PRAGMA, "no-cache".parse().unwrap());
+    headers.insert(header::EXPIRES, "0".parse().unwrap());
+    (headers, Html(include_str!("../templates/index.html")))
 }
 
 async fn api_parse_handler(mut multipart: Multipart) -> impl IntoResponse {
