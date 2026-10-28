@@ -14,6 +14,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnFillDemoText = document.getElementById('btnFillDemoText');
     const btnSubmit = document.getElementById('btnSubmit');
     const btnReset = document.getElementById('btnReset');
+
+    // Collapsible Input & Add Button
+    const inputCard = document.getElementById('inputCard');
+    const inputCardHeader = document.getElementById('inputCardHeader');
+    const collapsedInputBar = document.getElementById('collapsedInputBar');
+    const collapsedDomainCount = document.getElementById('collapsedDomainCount');
+    const collapsedSourceInfo = document.getElementById('collapsedSourceInfo');
+    const btnShowInputCard = document.getElementById('btnShowInputCard');
+    const btnHideInputCard = document.getElementById('btnHideInputCard');
     
     // Progress
     const progressSection = document.getElementById('progressSection');
@@ -22,6 +31,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const progressText = document.getElementById('progressText');
     const progressDetail = document.getElementById('progressDetail');
     const btnCancelScan = document.getElementById('btnCancelScan');
+    const btnDismissProgress = document.getElementById('btnDismissProgress');
+    const progressSpinner = document.getElementById('progressSpinner');
+    let progressHideTimer = null;
     
     // Stats
     const statsSection = document.getElementById('statsSection');
@@ -165,6 +177,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 <span class="spinner-border spinner-border-sm me-1" style="width: 0.75rem; height: 0.75rem;"></span> Consultando...
             </span>`;
         }
+        if (data.status === 'cancelled') {
+            return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1" title="Verificação interrompida antes da consulta">
+                <i class="bi bi-dash-circle me-1"></i> Não Verificado
+            </span>`;
+        }
         if (data.status === 'available') {
             const isDns = data.status_label && data.status_label.includes('DNS');
             return `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="${escapeHtml(data.details || '')}">
@@ -191,6 +208,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (data.status === 'pending') {
             return '<span class="text-muted small"><span class="spinner-grow spinner-grow-sm me-1" style="width: 0.5rem; height: 0.5rem;"></span> Consultando WHOIS...</span>';
         }
+        if (data.status === 'cancelled') {
+            return '<span class="text-muted small">-</span>';
+        }
         if (data.status === 'available') {
             return '<span class="text-success small fw-medium"><i class="bi bi-check2"></i> Livre para registro</span>';
         }
@@ -212,6 +232,15 @@ document.addEventListener('DOMContentLoaded', function () {
             return `<button class="btn btn-sm btn-light border py-1 px-2 text-muted" disabled style="opacity: 0.6;">
                 <i class="bi bi-hourglass-split"></i>
             </button>`;
+        }
+        if (data.status === 'cancelled') {
+            return `
+                <div class="d-flex justify-content-end gap-1">
+                    <button class="btn btn-sm btn-light border py-1 px-2 btn-copy-domain" data-domain="${escapeHtml(data.domain)}" title="Copiar domínio">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            `;
         }
         let html = `
             <div class="d-flex justify-content-end gap-1">
@@ -372,7 +401,32 @@ document.addEventListener('DOMContentLoaded', function () {
             currentPage = 1;
             sortColumn = null; // mantém a ordem natural durante o scan para não pular linhas
             
+            // Recolhe o formulário grande e exibe a barra compacta com o botão "Adicionar / Nova Busca"
+            if (inputCard) inputCard.classList.add('d-none');
+            if (collapsedInputBar) {
+                collapsedInputBar.classList.remove('d-none');
+                if (collapsedDomainCount) collapsedDomainCount.textContent = domainList.length;
+                if (collapsedSourceInfo) {
+                    collapsedSourceInfo.textContent = isUploadTab 
+                        ? (fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'Arquivo enviado')
+                        : 'Lista digitada';
+                }
+            }
+
+            // Prepara a seção de progresso
+            if (progressHideTimer) clearTimeout(progressHideTimer);
             progressSection.classList.remove('d-none');
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-primary';
+            progressBar.style.width = '0%';
+            progressPercentage.className = 'badge bg-primary fs-6 px-3';
+            progressPercentage.textContent = '0%';
+            if (progressSpinner) progressSpinner.classList.remove('d-none');
+            if (btnDismissProgress) btnDismissProgress.classList.add('d-none');
+            if (btnCancelScan) {
+                btnCancelScan.classList.remove('d-none');
+                btnCancelScan.disabled = false;
+            }
+
             statsSection.classList.remove('d-none');
             resultsSection.classList.remove('d-none');
             if (btnReset) btnReset.style.display = 'inline-block';
@@ -468,12 +522,42 @@ document.addEventListener('DOMContentLoaded', function () {
             updatePaginationInfo();
 
             if (isCancelled) {
-                progressText.textContent = 'Verificação interrompida pelo usuário.';
+                if (progressSpinner) progressSpinner.classList.add('d-none');
+                progressText.innerHTML = '<i class="bi bi-pause-circle text-warning fs-5 me-1"></i> Verificação interrompida pelo usuário.';
                 progressDetail.textContent = `${completed} de ${total} domínios verificados.`;
+                progressBar.className = 'progress-bar bg-warning';
+                progressPercentage.className = 'badge bg-warning text-dark fs-6 px-3';
+                if (btnCancelScan) btnCancelScan.classList.add('d-none');
+                if (btnDismissProgress) btnDismissProgress.classList.remove('d-none');
+
+                // Atualiza domínios não verificados restantes para evitar spinners infinitos
+                allResults.forEach(r => {
+                    if (r.status === 'pending') {
+                        r.status = 'cancelled';
+                        r.status_label = 'Não Verificado';
+                        r.status_class = 'secondary';
+                        r.details = 'Verificação interrompida pelo usuário antes da consulta.';
+                        updateRowInPlace(r);
+                    }
+                });
+                updateFilterCountsAndStats();
+
+                // Esconde a notificação automaticamente após 3.5 segundos
+                if (progressHideTimer) clearTimeout(progressHideTimer);
+                progressHideTimer = setTimeout(() => {
+                    progressSection.classList.add('d-none');
+                }, 3500);
             } else {
-                progressText.textContent = 'Verificação concluída com sucesso!';
+                if (progressSpinner) progressSpinner.classList.add('d-none');
+                progressText.innerHTML = '<i class="bi bi-check-circle text-success fs-5 me-1"></i> Verificação concluída com sucesso!';
                 progressDetail.textContent = `Todos os ${total} domínios foram processados via WHOIS.`;
-                setTimeout(() => {
+                progressBar.className = 'progress-bar bg-success';
+                progressPercentage.className = 'badge bg-success fs-6 px-3';
+                if (btnCancelScan) btnCancelScan.classList.add('d-none');
+                if (btnDismissProgress) btnDismissProgress.classList.remove('d-none');
+
+                if (progressHideTimer) clearTimeout(progressHideTimer);
+                progressHideTimer = setTimeout(() => {
                     progressSection.classList.add('d-none');
                 }, 3000);
             }
@@ -488,6 +572,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (btnDismissProgress) {
+        btnDismissProgress.addEventListener('click', () => {
+            if (progressHideTimer) clearTimeout(progressHideTimer);
+            progressSection.classList.add('d-none');
+        });
+    }
+
+    if (btnShowInputCard) {
+        btnShowInputCard.addEventListener('click', () => {
+            if (collapsedInputBar) collapsedInputBar.classList.add('d-none');
+            if (inputCard) {
+                inputCard.classList.remove('d-none');
+                if (inputCardHeader) inputCardHeader.classList.remove('d-none');
+                inputCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    }
+
+    if (btnHideInputCard) {
+        btnHideInputCard.addEventListener('click', () => {
+            if (inputCard) inputCard.classList.add('d-none');
+            if (collapsedInputBar) collapsedInputBar.classList.remove('d-none');
+        });
+    }
+
     if (btnReset) {
         btnReset.addEventListener('click', () => {
             allResults = [];
@@ -496,6 +605,12 @@ document.addEventListener('DOMContentLoaded', function () {
             statsSection.classList.add('d-none');
             resultsSection.classList.add('d-none');
             progressSection.classList.add('d-none');
+            if (progressHideTimer) clearTimeout(progressHideTimer);
+            if (collapsedInputBar) collapsedInputBar.classList.add('d-none');
+            if (inputCard) {
+                inputCard.classList.remove('d-none');
+                if (inputCardHeader) inputCardHeader.classList.add('d-none');
+            }
             btnReset.style.display = 'none';
             if (domainsText) domainsText.value = '';
             if (fileInput) fileInput.value = '';

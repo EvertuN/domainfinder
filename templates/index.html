@@ -50,8 +50,34 @@
                         </p>
                     </div>
 
+                    <!-- Collapsed Input Bar (Aparece quando a busca inicia para economizar espaço) -->
+                    <div id="collapsedInputBar" class="card shadow-sm border-0 mb-4 rounded-3 d-none">
+                        <div class="card-body py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 px-3 py-2 rounded-pill">
+                                    <i class="bi bi-list-check me-1"></i> <span id="collapsedDomainCount">0</span> domínios
+                                </span>
+                                <span class="text-muted small ms-1" id="collapsedSourceInfo">Lista carregada</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm rounded-pill" id="btnShowInputCard">
+                                    <i class="bi bi-plus-lg me-1"></i> Adicionar / Nova Busca
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Input Card -->
-                    <div class="card shadow-sm border-0 mb-4 rounded-3">
+                    <div class="card shadow-sm border-0 mb-4 rounded-3" id="inputCard">
+                        <div class="card-header bg-white border-bottom pt-3 px-4 pb-3 d-flex justify-content-between align-items-center d-none" id="inputCardHeader">
+                            <div class="fw-semibold text-dark d-flex align-items-center gap-2">
+                                <i class="bi bi-plus-circle text-primary"></i>
+                                <span>Adicionar ou Modificar Lista de Domínios</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-3 rounded-pill" id="btnHideInputCard" title="Recolher formulário">
+                                <i class="bi bi-chevron-up me-1"></i> Recolher
+                            </button>
+                        </div>
                         <div class="card-body p-4">
 
                             <!-- Navigation Tabs -->
@@ -155,19 +181,21 @@
                     <div class="card shadow-sm border-0 mb-4 rounded-3 d-none" id="progressSection">
                         <div class="card-body p-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="fw-semibold text-dark d-flex align-items-center gap-2">
-                                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                                <span class="fw-semibold text-dark d-flex align-items-center gap-2" id="progressTitleContainer">
+                                    <span class="spinner-border spinner-border-sm text-primary" role="status" id="progressSpinner"></span>
                                     <span id="progressText">Consultando WHOIS...</span>
                                 </span>
-                                <span class="badge bg-primary fs-6 px-3" id="progressPercentage">0%</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary fs-6 px-3" id="progressPercentage">0%</span>
+                                    <button type="button" class="btn-close btn-sm d-none" id="btnDismissProgress" aria-label="Fechar" title="Fechar"></button>
+                                </div>
                             </div>
                             <div class="progress mb-3" style="height: 12px;">
                                 <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
                                     id="progressBar" role="progressbar" style="width: 0%"></div>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted" id="progressDetail">Consultando registros via TCP
-                                    socket...</small>
+                                <small class="text-muted" id="progressDetail">Consultando registros...</small>
                                 <button type="button" class="btn btn-sm btn-outline-danger" id="btnCancelScan">
                                     <i class="bi bi-stop-circle me-1"></i> Cancelar
                                 </button>
