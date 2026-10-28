@@ -166,13 +166,15 @@ document.addEventListener('DOMContentLoaded', function () {
             </span>`;
         }
         if (data.status === 'available') {
-            return `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
-                <i class="bi bi-check-circle-fill me-1"></i> Disponível
+            const isDns = data.status_label && data.status_label.includes('DNS');
+            return `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="${escapeHtml(data.details || '')}">
+                <i class="bi bi-check-circle-fill me-1"></i> ${isDns ? 'Disponível (DNS)' : 'Disponível'}
             </span>`;
         }
         if (data.status === 'registered') {
-            return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
-                <i class="bi bi-x-circle-fill me-1"></i> Registrado
+            const isDns = data.status_label && data.status_label.includes('DNS');
+            return `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" title="${escapeHtml(data.details || '')}">
+                <i class="bi bi-x-circle-fill me-1"></i> ${isDns ? 'Registrado (DNS)' : 'Registrado'}
             </span>`;
         }
         if (data.status === 'rate_limited') {
@@ -381,10 +383,10 @@ document.addEventListener('DOMContentLoaded', function () {
             // Renderiza a tabela inicial com placeholders (apenas 1 render, SEM PISCAR)
             applyFilterAndRender();
 
-            // Executa consultas concorrentes com controle de taxa
+            // Executa consultas concorrentes com controle de taxa inteligente
             const total = domainList.length;
             let completed = 0;
-            const concurrency = 2;
+            const concurrency = 4;
             let index = 0;
 
             async function worker() {
@@ -409,6 +411,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         // Atualização cirúrgica in-place na linha do DOM (sem recriar a tabela)
                         updateRowInPlace(data);
+
+                        // Se porventura receber rate limit, dá um respiro de 1s para não sobrecarregar
+                        if (data.status === 'rate_limited') {
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
                     } catch (err) {
                         const fallbackData = {
                             domain: domain,
