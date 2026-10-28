@@ -2,12 +2,15 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     // DOM Elements - Input & Upload
-    const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const btnSelectFile = document.getElementById('btnSelectFile');
     const selectedFileInfo = document.getElementById('selectedFileInfo');
     const fileNameDisplay = document.getElementById('fileName');
+    const fileCountBadge = document.getElementById('fileCountBadge');
     const btnRemoveFile = document.getElementById('btnRemoveFile');
+    const domainCounterBadge = document.getElementById('domainCounterBadge');
+    const textareaDropContainer = document.getElementById('textareaDropContainer');
+    const dropOverlay = document.getElementById('dropOverlay');
     
     const domainForm = document.getElementById('domainForm');
     const domainsText = document.getElementById('domains_text');
@@ -85,7 +88,39 @@ document.addEventListener('DOMContentLoaded', function () {
     let isCancelled = false;
     let isScanning = false;
 
-    // --- 1. File Upload & Drag-and-Drop ---
+    // --- 1. Contador em Tempo Real e Limite de 500 Domínios ---
+    function updateDomainCounter() {
+        if (!domainsText || !domainCounterBadge) return 0;
+        const text = domainsText.value.trim();
+        if (!text) {
+            domainCounterBadge.textContent = '0 / 500';
+            domainCounterBadge.className = 'badge bg-secondary-subtle text-secondary border font-monospace';
+            return 0;
+        }
+
+        const lines = text.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 0 && !l.startsWith('#') && !l.startsWith('//'));
+
+        const count = lines.length;
+        if (count > 500) {
+            domainCounterBadge.textContent = `${count} / 500 (Limite 500)`;
+            domainCounterBadge.className = 'badge bg-warning-subtle text-dark border border-warning font-monospace';
+        } else if (count >= 450) {
+            domainCounterBadge.textContent = `${count} / 500`;
+            domainCounterBadge.className = 'badge bg-warning-subtle text-dark border font-monospace';
+        } else {
+            domainCounterBadge.textContent = `${count} / 500`;
+            domainCounterBadge.className = 'badge bg-primary-subtle text-primary border font-monospace';
+        }
+        return count;
+    }
+
+    if (domainsText) {
+        domainsText.addEventListener('input', updateDomainCounter);
+    }
+
+    // --- 2. Carregamento de Arquivo (.txt / .csv) direto para o campo de texto ---
     if (btnSelectFile && fileInput) {
         btnSelectFile.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -93,41 +128,67 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    if (dropZone) {
-        dropZone.addEventListener('click', () => {
-            fileInput.click();
-        });
+    async function handleFileSelected(file) {
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropZone.classList.add('dragover');
-            });
-        });
+        showToast('Processando e carregando domínios do arquivo...', 'info');
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropZone.classList.remove('dragover');
-            });
-        });
+        try {
+            const res = await fetch('/api/parse', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success && data.domains) {
+                domainsText.value = data.domains.join('\n');
+                if (fileNameDisplay) fileNameDisplay.textContent = file.name;
+                if (fileCountBadge) fileCountBadge.textContent = `${data.count} domínios`;
+                if (selectedFileInfo) selectedFileInfo.classList.remove('d-none');
 
-        dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            if (files && files.length > 0) {
-                fileInput.files = files;
-                updateFileDisplay(files[0].name);
+                if (data.is_truncated) {
+                    showToast(`O arquivo continha ${data.total_found} domínios. A lista foi limitada aos primeiros 500.`, 'warning');
+                } else {
+                    showToast(`${data.count} domínios carregados no campo de texto!`, 'success');
+                }
+                updateDomainCounter();
             }
-        });
+        } catch (err) {
+            console.error(err);
+            showToast('Erro ao ler os domínios do arquivo.', 'danger');
+        }
     }
 
     if (fileInput) {
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                updateFileDisplay(fileInput.files[0].name);
+                handleFileSelected(fileInput.files[0]);
+            }
+        });
+    }
+
+    // Drag & Drop no Textarea
+    if (textareaDropContainer) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            textareaDropContainer.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropOverlay) dropOverlay.classList.remove('d-none');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            textareaDropContainer.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dropOverlay) dropOverlay.classList.add('d-none');
+            });
+        });
+
+        textareaDropContainer.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                fileInput.files = files;
+                handleFileSelected(files[0]);
             }
         });
     }
@@ -135,19 +196,16 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnRemoveFile) {
         btnRemoveFile.addEventListener('click', (e) => {
             e.stopPropagation();
-            fileInput.value = '';
-            selectedFileInfo.classList.add('d-none');
-            btnSelectFile.classList.remove('d-none');
+            if (fileInput) fileInput.value = '';
+            if (selectedFileInfo) selectedFileInfo.classList.add('d-none');
+            if (domainsText) {
+                domainsText.value = '';
+                updateDomainCounter();
+            }
         });
     }
 
-    function updateFileDisplay(name) {
-        fileNameDisplay.textContent = name;
-        selectedFileInfo.classList.remove('d-none');
-        btnSelectFile.classList.add('d-none');
-    }
-
-    // --- 2. Fill Demo Domains ---
+    // Preencher com domínios de demonstração
     if (btnFillDemoText && domainsText) {
         btnFillDemoText.addEventListener('click', () => {
             domainsText.value = [
@@ -162,11 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 'github.com',
                 'novo-site-livre-4567.com'
             ].join('\n');
-            
-            const textTabTrigger = document.querySelector('#text-tab');
-            if (textTabTrigger) {
-                bootstrap.Tab.getOrCreateInstance(textTabTrigger).show();
-            }
+            updateDomainCounter();
         });
     }
 
@@ -325,28 +379,17 @@ document.addEventListener('DOMContentLoaded', function () {
         domainForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            const activeTab = document.querySelector('#inputTabs .nav-link.active');
-            const isUploadTab = activeTab && activeTab.id === 'upload-tab';
-
-            let formData = new FormData();
-
-            if (isUploadTab) {
-                if (!fileInput.files || fileInput.files.length === 0) {
-                    showToast('Por favor, selecione um arquivo .txt ou .csv.', 'warning');
-                    return;
-                }
-                formData.append('file', fileInput.files[0]);
-            } else {
-                const text = domainsText.value.trim();
-                if (!text) {
-                    showToast('Por favor, digite ou cole ao menos um domínio.', 'warning');
-                    return;
-                }
-                formData.append('text', text);
+            const text = domainsText ? domainsText.value.trim() : '';
+            if (!text) {
+                showToast('Por favor, digite ou carregue ao menos um domínio.', 'warning');
+                return;
             }
 
             btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Lendo lista...';
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validando lista...';
+
+            let formData = new FormData();
+            formData.append('text', text);
 
             let domainList = [];
             try {
@@ -356,16 +399,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 const parseData = await parseResponse.json();
                 domainList = parseData.domains || [];
+
+                if (parseData.is_truncated) {
+                    showToast(`A lista continha ${parseData.total_found} domínios. Limitado aos primeiros 500 para consulta.`, 'warning');
+                }
             } catch (err) {
                 console.error(err);
-                showToast('Erro ao ler a lista de domínios. Tente novamente.', 'danger');
+                showToast('Erro ao validar a lista de domínios. Tente novamente.', 'danger');
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="bi bi-search me-1"></i> Verificar Domínios';
                 return;
             }
 
             if (domainList.length === 0) {
-                showToast('Nenhum domínio válido encontrado no arquivo ou texto.', 'warning');
+                showToast('Nenhum domínio válido encontrado no campo de texto.', 'warning');
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '<i class="bi bi-search me-1"></i> Verificar Domínios';
                 return;
@@ -407,9 +454,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 collapsedInputBar.classList.remove('d-none');
                 if (collapsedDomainCount) collapsedDomainCount.textContent = domainList.length;
                 if (collapsedSourceInfo) {
-                    collapsedSourceInfo.textContent = isUploadTab 
-                        ? (fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'Arquivo enviado')
-                        : 'Lista digitada';
+                    const src = fileNameDisplay && fileNameDisplay.textContent && !selectedFileInfo.classList.contains('d-none')
+                        ? fileNameDisplay.textContent
+                        : 'Entrada manual';
+                    collapsedSourceInfo.textContent = `${src} (${domainList.length} domínios)`;
                 }
             }
 
@@ -627,6 +675,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (fileInput) fileInput.value = '';
             if (selectedFileInfo) selectedFileInfo.classList.add('d-none');
             if (btnSelectFile) btnSelectFile.classList.remove('d-none');
+            updateDomainCounter();
         });
     }
 

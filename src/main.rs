@@ -17,6 +17,8 @@ use tower_http::services::ServeDir;
 struct ParseResponse {
     success: bool,
     count: usize,
+    total_found: usize,
+    is_truncated: bool,
     domains: Vec<String>,
 }
 
@@ -73,14 +75,24 @@ async fn api_parse_handler(mut multipart: Multipart) -> impl IntoResponse {
 
     // Deduplica mantendo a ordem
     let mut seen = std::collections::HashSet::new();
-    let unique_domains: Vec<String> = domains
+    let mut unique_domains: Vec<String> = domains
         .into_iter()
         .filter(|d| seen.insert(d.clone()))
         .collect();
 
+    // Limite estrito de 500 domínios
+    let max_limit = 500;
+    let total_found = unique_domains.len();
+    let is_truncated = total_found > max_limit;
+    if is_truncated {
+        unique_domains.truncate(max_limit);
+    }
+
     Json(ParseResponse {
         success: true,
         count: unique_domains.len(),
+        total_found,
+        is_truncated,
         domains: unique_domains,
     })
 }
@@ -92,7 +104,7 @@ async fn api_check_single_handler(Json(payload): Json<CheckSinglePayload>) -> im
 
 async fn api_check_batch_handler(Json(payload): Json<CheckBatchPayload>) -> impl IntoResponse {
     let domains = payload.domains;
-    let max_domains = 300;
+    let max_domains = 500;
     let domains_slice = if domains.len() > max_domains {
         &domains[..max_domains]
     } else {
