@@ -36,6 +36,14 @@ static AVAILABLE_PATTERNS: &[&str] = &[
     "dominio nao encontrado",
     "domínio não encontrado",
     "% no match for",
+    "has not been registered",
+    "not been registered",
+    "domain not registered",
+    "not registered",
+    "is free",
+    "available for registration",
+    "no data was found",
+    "domain unknown",
 ];
 
 static REDACTED_PATTERNS: &[&str] = &[
@@ -157,20 +165,89 @@ pub async fn enforce_br_rate_limit() {
 }
 
 fn get_whois_server(domain: &str) -> (&'static str, &'static str) {
-    if domain.ends_with(".br") {
+    let d = domain.to_lowercase();
+    if d.ends_with(".br") {
         ("whois.registro.br", "whois.registro.br:43")
-    } else if domain.ends_with(".com") || domain.ends_with(".net") {
+    } else if d.ends_with(".uk") {
+        ("whois.nic.uk", "whois.nic.uk:43")
+    } else if d.ends_with(".ai") {
+        ("whois.nic.ai", "whois.nic.ai:43")
+    } else if d.ends_with(".com") || d.ends_with(".net") {
         ("whois.verisign-grs.com", "whois.verisign-grs.com:43")
-    } else if domain.ends_with(".org") {
+    } else if d.ends_with(".org") {
         ("whois.pir.org", "whois.pir.org:43")
-    } else if domain.ends_with(".io") {
+    } else if d.ends_with(".io") {
         ("whois.nic.io", "whois.nic.io:43")
-    } else if domain.ends_with(".me") {
-        ("whois.nic.me", "whois.nic.me:43")
-    } else if domain.ends_with(".co") {
+    } else if d.ends_with(".co") {
         ("whois.nic.co", "whois.nic.co:43")
-    } else if domain.ends_with(".app") || domain.ends_with(".dev") || domain.ends_with(".page") {
+    } else if d.ends_with(".me") {
+        ("whois.nic.me", "whois.nic.me:43")
+    } else if d.ends_with(".app") || d.ends_with(".dev") || d.ends_with(".page") {
         ("whois.nic.google", "whois.nic.google:43")
+    } else if d.ends_with(".xyz") {
+        ("whois.nic.xyz", "whois.nic.xyz:43")
+    } else if d.ends_with(".tech") {
+        ("whois.nic.tech", "whois.nic.tech:43")
+    } else if d.ends_with(".online") {
+        ("whois.nic.online", "whois.nic.online:43")
+    } else if d.ends_with(".site") {
+        ("whois.nic.site", "whois.nic.site:43")
+    } else if d.ends_with(".store") {
+        ("whois.nic.store", "whois.nic.store:43")
+    } else if d.ends_with(".shop") {
+        ("whois.nic.shop", "whois.nic.shop:43")
+    } else if d.ends_with(".cloud") {
+        ("whois.nic.cloud", "whois.nic.cloud:43")
+    } else if d.ends_with(".info") {
+        ("whois.afilias-srs.net", "whois.afilias-srs.net:43")
+    } else if d.ends_with(".biz") {
+        ("whois.nic.biz", "whois.nic.biz:43")
+    } else if d.ends_with(".top") {
+        ("whois.nic.top", "whois.nic.top:43")
+    } else if d.ends_with(".pro") {
+        ("whois.nic.pro", "whois.nic.pro:43")
+    } else if d.ends_with(".club") {
+        ("whois.nic.club", "whois.nic.club:43")
+    } else if d.ends_with(".global") {
+        ("whois.nic.global", "whois.nic.global:43")
+    } else if d.ends_with(".live") {
+        ("whois.nic.live", "whois.nic.live:43")
+    } else if d.ends_with(".link") {
+        ("whois.nic.link", "whois.nic.link:43")
+    } else if d.ends_with(".space") {
+        ("whois.nic.space", "whois.nic.space:43")
+    } else if d.ends_with(".art") {
+        ("whois.nic.art", "whois.nic.art:43")
+    } else if d.ends_with(".design") {
+        ("whois.nic.design", "whois.nic.design:43")
+    } else if d.ends_with(".digital") || d.ends_with(".agency") || d.ends_with(".solutions") || d.ends_with(".software") || d.ends_with(".technology") || d.ends_with(".company") {
+        ("whois.donuts.co", "whois.donuts.co:43")
+    } else if d.ends_with(".pt") {
+        ("whois.dns.pt", "whois.dns.pt:43")
+    } else if d.ends_with(".fr") {
+        ("whois.nic.fr", "whois.nic.fr:43")
+    } else if d.ends_with(".it") {
+        ("whois.nic.it", "whois.nic.it:43")
+    } else if d.ends_with(".nl") {
+        ("whois.domain-registry.nl", "whois.domain-registry.nl:43")
+    } else if d.ends_with(".eu") {
+        ("whois.eu", "whois.eu:43")
+    } else if d.ends_with(".us") {
+        ("whois.nic.us", "whois.nic.us:43")
+    } else if d.ends_with(".ca") {
+        ("whois.cira.ca", "whois.cira.ca:43")
+    } else if d.ends_with(".ch") {
+        ("whois.nic.ch", "whois.nic.ch:43")
+    } else if d.ends_with(".de") {
+        ("whois.denic.de", "whois.denic.de:43")
+    } else if d.ends_with(".tv") {
+        ("whois.nic.tv", "whois.nic.tv:43")
+    } else if d.ends_with(".cc") {
+        ("ccwhois.verisign-grs.com", "ccwhois.verisign-grs.com:43")
+    } else if d.ends_with(".in") {
+        ("whois.registry.in", "whois.registry.in:43")
+    } else if d.ends_with(".lat") {
+        ("whois.nic.lat", "whois.nic.lat:43")
     } else {
         ("whois.iana.org", "whois.iana.org:43")
     }
@@ -729,6 +806,17 @@ pub async fn check_domain(raw_domain: &str) -> WhoisResult {
         return empty;
     }
 
+    if domain.ends_with(".ia") {
+        return WhoisResult {
+            domain: domain.clone(),
+            status: "invalid".to_string(),
+            status_label: "Extensão Inativa (Use .ai)".to_string(),
+            status_class: "warning".to_string(),
+            details: "A extensão '.ia' não existe como TLD oficial na ICANN. O domínio mundialmente adotado para Inteligência Artificial é '.ai'.".to_string(),
+            ..empty
+        };
+    }
+
     // =========================================================================
     // ESTRATÉGIA PARA DOMÍNIOS BRASILEIROS (.BR)
     // 1. Motor oficial de disponibilidade do Registro.br (ajax avail engine)
@@ -905,5 +993,25 @@ mod tests {
         let res = check_domain("teste-livre-1293819.com.br").await;
         assert_eq!(res.status, "available");
         assert_eq!(res.status_label, "Disponível");
+    }
+
+    #[tokio::test]
+    async fn test_uk_and_ai_domains() {
+        let uk_reg = check_domain("google.co.uk").await;
+        assert_eq!(uk_reg.status, "registered");
+        assert_eq!(uk_reg.status_label, "Registrado");
+
+        let uk_free = check_domain("teste-livre-muito-improvavel-981273981273.co.uk").await;
+        assert_eq!(uk_free.status, "available");
+        assert_eq!(uk_free.status_label, "Disponível");
+
+        let ai_reg = check_domain("google.ai").await;
+        assert_eq!(ai_reg.status, "registered");
+
+        let ai_free = check_domain("teste-livre-muito-improvavel-981273981273.ai").await;
+        assert_eq!(ai_free.status, "available");
+
+        let ia_check = check_domain("google.ia").await;
+        assert_eq!(ia_check.status, "invalid");
     }
 }

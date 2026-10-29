@@ -14,7 +14,16 @@ Um sistema web de altíssima performance para consulta em massa de disponibilida
 
 ## 🚀 Funcionalidades
 
-- **Upload de Lista (.TXT e .CSV)**:
+- **Busca Única Multi-Extensões (NOVO! `/busca-unica`)**:
+  - Digite apenas o nome da marca ou ideia (ex: `exemplo`) e o sistema gera e verifica automaticamente todas as extensões possíveis: `.com`, `.com.br`, `.ai`, `.io`, `.uk`, `.net`, `.org`, `.app`, `.dev`, `.co`, `.pt`, `.tech`, `.store` (+ de 50 extensões oficiais).
+  - Filtros por categoria: *Mais Populares*, *Brasil (.br)*, *Tecnologia & IA*, *Internacionais/Países* e *Negócios & Vendas*.
+  - Possibilidade de adicionar extensões personalizadas dinamicamente.
+  - **Redirecionamento Direto para Compra**:
+    - Botão "Comprar" em 1 clique que redireciona diretamente com o domínio pré-preenchido para o registrador oficial (Registro.br para extensões `.br` e Namecheap/Hostinger/GoDaddy/Porkbun para internacionais).
+    - Menu seletor com todos os registradores para máxima flexibilidade.
+  - Filtro instantâneo por disponíveis e exportação em CSV / Cópia para Área de Transferência.
+
+- **Verificador em Lote (/ - Upload de Lista .TXT e .CSV)**:
   - Arquivos `.txt`: um domínio por linha.
   - Arquivos `.csv`: detecção automática de delimitadores (`,`, `;`, `\t`, `|`) e localização inteligente da coluna de domínios ou cabeçalho (`dominio`, `domain`, `url`, etc.).
 - **Digitação / Colagem Direta**: Aba dedicada para colar domínios manualmente e botão para preencher dados de demonstração com 1 clique.
@@ -81,14 +90,17 @@ http://localhost:5000
 domainfinder/
 ├── Cargo.toml                  # Manifesto de dependências do Rust
 ├── src/
-│   ├── main.rs                 # Servidor web Axum, rotas REST e exportação CSV
+│   ├── main.rs                 # Servidor web Axum, rotas REST e API de TLDs
 │   ├── whois.rs                # Engine assíncrona TCP socket porta 43 e RDAP
 │   └── parser.rs               # Parser inteligente de listas .txt e .csv
 ├── templates/
-│   └── app.html                # Interface HTML5 completa com Bootstrap 5
+│   ├── index.html              # Interface do Verificador em Lote
+│   └── busca_unica.html        # Interface da Busca Única Multi-Extensões
 ├── static/
-│   ├── css/style.css           # Estilos personalizados
-│   └── js/app.js               # Lógica de atualização in-place e paginação
+│   ├── css/style.css           # Estilos personalizados (Cards, Badges, Botões)
+│   └── js/
+│       ├── app.js              # Lógica do Verificador em Lote
+│       └── busca_unica.js      # Engine da Busca Única e Redirecionamento
 ├── sample_domains.txt          # Arquivo de exemplo .txt
 ├── sample_domains.csv          # Arquivo de exemplo .csv
 └── README.md                   # Documentação

@@ -27,9 +27,24 @@
                 <i class="bi bi-globe2 fs-3"></i>
                 <span>DomainFinder</span>
             </a>
-            <span class="navbar-text text-white-50 d-none d-md-inline small">
-                Consulta WHOIS Assíncrona de Alta Performance
-            </span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
+                aria-controls="navbarContent" aria-expanded="false" aria-label="Alternar navegação">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav ms-auto align-items-center gap-2 mt-3 mt-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active px-3 py-1 fw-semibold" href="/">
+                            <i class="bi bi-list-check me-1"></i> Busca em Lote
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white-50 px-3 py-1 fw-semibold" href="/busca-unica">
+                            <i class="bi bi-search me-1"></i> Busca Única
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -52,15 +67,20 @@
 
                     <!-- Collapsed Input Bar (Aparece quando a busca inicia para economizar espaço) -->
                     <div id="collapsedInputBar" class="card shadow-sm border-0 mb-4 rounded-3 d-none">
-                        <div class="card-body py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div
+                            class="card-body py-3 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 px-3 py-2 rounded-pill">
-                                    <i class="bi bi-list-check me-1"></i> <span id="collapsedDomainCount">0</span> domínios
+                                <span
+                                    class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 px-3 py-2 rounded-pill">
+                                    <i class="bi bi-list-check me-1"></i> <span id="collapsedDomainCount">0</span>
+                                    domínios
                                 </span>
                                 <span class="text-muted small ms-1" id="collapsedSourceInfo">Lista em verificação</span>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm rounded-pill" id="btnShowInputCard">
+                                <button type="button"
+                                    class="btn btn-primary btn-sm px-3 py-2 fw-semibold shadow-sm rounded-pill"
+                                    id="btnShowInputCard">
                                     <i class="bi bi-plus-lg me-1"></i> Adicionar / Nova Busca
                                 </button>
                             </div>
@@ -69,48 +89,57 @@
 
                     <!-- Input Card Unificado (Campo de Texto + Upload Integrado + Limite de 500) -->
                     <div class="card shadow-sm border-0 mb-4 rounded-3" id="inputCard">
-                        <div class="card-header bg-white border-bottom pt-3 px-4 pb-3 d-flex justify-content-between align-items-center d-none" id="inputCardHeader">
+                        <div class="card-header bg-white border-bottom pt-3 px-4 pb-3 d-flex justify-content-between align-items-center d-none"
+                            id="inputCardHeader">
                             <div class="fw-semibold text-dark d-flex align-items-center gap-2">
                                 <i class="bi bi-pencil-square text-primary"></i>
                                 <span>Adicionar ou Modificar Lista de Domínios</span>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-3 rounded-pill" id="btnHideInputCard" title="Recolher formulário">
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-3 rounded-pill"
+                                id="btnHideInputCard" title="Recolher formulário">
                                 <i class="bi bi-chevron-up me-1"></i> Recolher
                             </button>
                         </div>
                         <div class="card-body p-4">
                             <form id="domainForm" action="#" method="POST" enctype="multipart/form-data">
-                                
+
                                 <!-- Topo do campo de envio: Título + Botão de Upload + Contador -->
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
                                     <div class="d-flex align-items-center gap-2">
                                         <label for="domains_text" class="form-label text-dark fw-semibold mb-0">
                                             <i class="bi bi-card-text text-primary me-1"></i> Lista de Domínios
                                         </label>
-                                        <span class="badge bg-secondary-subtle text-secondary border font-monospace" id="domainCounterBadge">
+                                        <span class="badge bg-secondary-subtle text-secondary border font-monospace"
+                                            id="domainCounterBadge">
                                             0 / 500
                                         </span>
                                     </div>
 
                                     <div class="d-flex align-items-center gap-2">
                                         <input type="file" name="file" id="fileInput" class="d-none" accept=".txt,.csv">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectFile" title="Carregar arquivo .txt ou .csv para o campo de texto">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnSelectFile"
+                                            title="Carregar arquivo .txt ou .csv para o campo de texto">
                                             <i class="bi bi-cloud-arrow-up me-1"></i> Carregar Arquivo (.txt / .csv)
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFillDemoText" title="Preencher com exemplos">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            id="btnFillDemoText" title="Preencher com exemplos">
                                             <i class="bi bi-magic me-1"></i> Exemplos
                                         </button>
                                     </div>
                                 </div>
 
                                 <!-- Notificação de Arquivo Carregado -->
-                                <div id="selectedFileInfo" class="alert alert-info py-2 px-3 mb-2 d-none d-flex justify-content-between align-items-center rounded-3">
+                                <div id="selectedFileInfo"
+                                    class="alert alert-info py-2 px-3 mb-2 d-none d-flex justify-content-between align-items-center rounded-3">
                                     <div class="d-flex align-items-center gap-2 small">
                                         <i class="bi bi-file-earmark-check text-primary fs-5"></i>
                                         <span>Arquivo: <strong id="fileName">arquivo.txt</strong></span>
-                                        <span class="badge bg-primary-subtle text-primary border" id="fileCountBadge"></span>
+                                        <span class="badge bg-primary-subtle text-primary border"
+                                            id="fileCountBadge"></span>
                                     </div>
-                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 text-decoration-none" id="btnRemoveFile">
+                                    <button type="button"
+                                        class="btn btn-sm btn-link text-danger p-0 text-decoration-none"
+                                        id="btnRemoveFile">
                                         <i class="bi bi-trash me-1"></i>Limpar
                                     </button>
                                 </div>
@@ -123,10 +152,13 @@
                                         style="font-size: 0.9rem; resize: vertical; line-height: 1.6;"></textarea>
 
                                     <!-- Overlay de Arraste de Arquivo -->
-                                    <div id="dropOverlay" class="position-absolute top-0 start-0 w-100 h-100 bg-primary-subtle bg-opacity-75 rounded border border-2 border-primary border-dashed d-none flex-column align-items-center justify-content-center text-primary" style="z-index: 10; pointer-events: none;">
+                                    <div id="dropOverlay"
+                                        class="position-absolute top-0 start-0 w-100 h-100 bg-primary-subtle bg-opacity-75 rounded border border-2 border-primary border-dashed d-none flex-column align-items-center justify-content-center text-primary"
+                                        style="z-index: 10; pointer-events: none;">
                                         <i class="bi bi-cloud-arrow-up display-4"></i>
                                         <div class="fw-bold mt-2">Solte seu arquivo .txt ou .csv aqui</div>
-                                        <small class="text-muted">Os domínios serão inseridos automaticamente no campo acima</small>
+                                        <small class="text-muted">Os domínios serão inseridos automaticamente no campo
+                                            acima</small>
                                     </div>
                                 </div>
 
@@ -134,14 +166,19 @@
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-1">
                                     <small class="text-muted">
                                         <i class="bi bi-info-circle me-1"></i>
-                                        Limite de <strong>500 domínios</strong> por consulta. URLs como <code>https://...</code> e <code>www.</code> são tratadas automaticamente.
+                                        Limite de <strong>500 domínios</strong> por consulta. URLs como
+                                        <code>https://...</code> e <code>www.</code> são tratadas automaticamente.
                                     </small>
 
                                     <div class="d-flex gap-2">
-                                        <a href="/download-sample/txt" class="btn btn-sm btn-light border text-secondary py-0 px-2" style="font-size: 0.78rem;">
+                                        <a href="/download-sample/txt"
+                                            class="btn btn-sm btn-light border text-secondary py-0 px-2"
+                                            style="font-size: 0.78rem;">
                                             <i class="bi bi-filetype-txt text-primary me-1"></i> Modelo .TXT
                                         </a>
-                                        <a href="/download-sample/csv" class="btn btn-sm btn-light border text-secondary py-0 px-2" style="font-size: 0.78rem;">
+                                        <a href="/download-sample/csv"
+                                            class="btn btn-sm btn-light border text-secondary py-0 px-2"
+                                            style="font-size: 0.78rem;">
                                             <i class="bi bi-filetype-csv text-success me-1"></i> Modelo .CSV
                                         </a>
                                     </div>
@@ -166,13 +203,16 @@
                     <div class="card shadow-sm border-0 mb-4 rounded-3 d-none" id="progressSection">
                         <div class="card-body p-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="fw-semibold text-dark d-flex align-items-center gap-2" id="progressTitleContainer">
-                                    <span class="spinner-border spinner-border-sm text-primary" role="status" id="progressSpinner"></span>
+                                <span class="fw-semibold text-dark d-flex align-items-center gap-2"
+                                    id="progressTitleContainer">
+                                    <span class="spinner-border spinner-border-sm text-primary" role="status"
+                                        id="progressSpinner"></span>
                                     <span id="progressText">Consultando WHOIS...</span>
                                 </span>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge bg-primary fs-6 px-3" id="progressPercentage">0%</span>
-                                    <button type="button" class="btn-close btn-sm d-none" id="btnDismissProgress" aria-label="Fechar" title="Fechar"></button>
+                                    <button type="button" class="btn-close btn-sm d-none" id="btnDismissProgress"
+                                        aria-label="Fechar" title="Fechar"></button>
                                 </div>
                             </div>
                             <div class="progress mb-3" style="height: 12px;">

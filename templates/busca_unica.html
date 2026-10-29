@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca Única de Domínios - DomainFinder</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css?v=20261029_02">
+</head>
+
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold fs-4" href="/">
+                <i class="bi bi-globe2 fs-3"></i>
+                <span>DomainFinder</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
+                aria-controls="navbarContent" aria-expanded="false" aria-label="Alternar navegação">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav ms-auto align-items-center gap-2 mt-3 mt-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link text-white-50 px-3 py-1 fw-semibold" href="/">
+                            <i class="bi bi-list-check me-1"></i> Busca em Lote
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active px-3 py-1 fw-semibold" href="/busca-unica">
+                            <i class="bi bi-search me-1"></i> Busca Única
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="py-4">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-12 col-xl-11">
+
+                    <!-- Header / Hero Section -->
+                    <div class="text-center mb-4">
+                        <h1 class="display-6 fw-bold text-dark mb-2">
+                            <i class="bi bi-search text-primary me-2"></i>Busca Única de Domínios
+                        </h1>
+                        <p class="lead text-secondary fs-6">
+                            Digite um domínio (ex: <strong>exemplo</strong>) para consultar a disponibilidade em todas as principais extensões (.com, .com.br, .io, .ai, .uk e outras) e ver onde registrar.
+                        </p>
+                    </div>
+
+                    <!-- Input Card -->
+                    <div class="card shadow-sm border-0 mb-4 rounded-3" id="inputCard">
+                        <div class="card-body p-4">
+                            <form id="singleDomainForm" action="#" method="POST">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <label for="domainKeyword" class="form-label text-dark fw-semibold mb-0">
+                                        <i class="bi bi-card-text text-primary me-1"></i> Nome do Domínio
+                                    </label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-demo-kw" data-kw="exemplo">
+                                            <i class="bi bi-magic me-1"></i> exemplo
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-demo-kw" data-kw="startup">
+                                            startup
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-demo-kw" data-kw="inovacao">
+                                            inovacao
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-muted">
+                                        <i class="bi bi-globe"></i>
+                                    </span>
+                                    <input type="text" class="form-control font-monospace py-2 px-3" id="domainKeyword"
+                                        placeholder="Digite o nome (ex: exemplo)..."
+                                        style="font-size: 0.95rem;" autocomplete="off" spellcheck="false" required>
+                                </div>
+
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-1">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Verifica automaticamente em mais de <strong>50 extensões</strong> (.com, .com.br, .ai, .io, .uk, etc.). URLs com <code>https://</code> e <code>www.</code> são tratadas automaticamente.
+                                    </small>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                    <button type="button" class="btn btn-light px-4 border" id="btnReset" style="display: none;">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpar
+                                    </button>
+                                    <button type="submit" class="btn btn-primary px-5 py-2 fw-semibold shadow-sm" id="btnSubmit">
+                                        <i class="bi bi-search me-1"></i> Verificar Disponibilidade
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Live Progress Section -->
+                    <div class="card shadow-sm border-0 mb-4 rounded-3 d-none" id="progressSection">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold text-dark d-flex align-items-center gap-2" id="progressTitleContainer">
+                                    <span class="spinner-border spinner-border-sm text-primary" role="status" id="progressSpinner"></span>
+                                    <span id="progressText">Consultando WHOIS...</span>
+                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary fs-6 px-3" id="progressPercentage">0%</span>
+                                    <button type="button" class="btn-close btn-sm d-none" id="btnDismissProgress" aria-label="Fechar" title="Fechar"></button>
+                                </div>
+                            </div>
+                            <div class="progress mb-3" style="height: 12px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="progressBar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted" id="progressDetail">Consultando registros...</small>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnCancelScan">
+                                    <i class="bi bi-stop-circle me-1"></i> Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Statistics Cards -->
+                    <div id="statsSection" class="d-none mb-4">
+                        <div class="row g-3">
+                            <div class="col-6 col-md-3">
+                                <div class="card border-0 shadow-sm rounded-3 stat-card bg-white border-start border-4 border-primary">
+                                    <div class="card-body p-3">
+                                        <span class="text-muted small text-uppercase fw-bold">Total Extensões</span>
+                                        <h3 class="fw-bold text-dark mt-1 mb-0" id="statTotal">0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="card border-0 shadow-sm rounded-3 stat-card bg-white border-start border-4 border-success">
+                                    <div class="card-body p-3">
+                                        <span class="text-success small text-uppercase fw-bold">Disponíveis</span>
+                                        <h3 class="fw-bold text-success mt-1 mb-0" id="statAvailable">0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="card border-0 shadow-sm rounded-3 stat-card bg-white border-start border-4 border-danger">
+                                    <div class="card-body p-3">
+                                        <span class="text-danger small text-uppercase fw-bold">Registrados</span>
+                                        <h3 class="fw-bold text-danger mt-1 mb-0" id="statRegistered">0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="card border-0 shadow-sm rounded-3 stat-card bg-white border-start border-4 border-secondary">
+                                    <div class="card-body p-3">
+                                        <span class="text-secondary small text-uppercase fw-bold">Erros / Inválidos</span>
+                                        <h3 class="fw-bold text-secondary mt-1 mb-0" id="statErrors">0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="resultsSection" class="d-none">
+                        <div class="card shadow-sm border-0 rounded-3">
+
+                            <!-- Toolbar -->
+                            <div class="card-header bg-white p-3 border-bottom">
+                                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+
+                                    <!-- Filter Tabs -->
+                                    <div class="btn-group btn-group-sm" role="group" id="filterButtonGroup">
+                                        <button type="button" class="btn btn-outline-primary active" data-filter="all">
+                                            Todos (<span id="filterCountAll">0</span>)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success" data-filter="available">
+                                            <i class="bi bi-check-circle me-1"></i> Disponíveis (<span id="filterCountAvailable">0</span>)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger" data-filter="registered">
+                                            <i class="bi bi-x-circle me-1"></i> Registrados (<span id="filterCountRegistered">0</span>)
+                                        </button>
+                                    </div>
+
+                                    <!-- Right Toolbar: Search & Export -->
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <!-- Search -->
+                                        <div class="input-group input-group-sm" style="width: 220px;">
+                                            <span class="input-group-text bg-light border-end-0">
+                                                <i class="bi bi-search text-muted"></i>
+                                            </span>
+                                            <input type="text" class="form-control border-start-0 ps-0"
+                                                id="searchFilter" placeholder="Filtrar extensão ou status...">
+                                        </div>
+
+                                        <!-- Page Size -->
+                                        <div class="d-flex align-items-center gap-1">
+                                            <label for="pageSizeSelect" class="small text-muted text-nowrap">Exibir:</label>
+                                            <select class="form-select form-select-sm" id="pageSizeSelect" style="width: 85px;">
+                                                <option value="10">10</option>
+                                                <option value="25" selected>25</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                                <option value="all">Todos</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Export Dropdown -->
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-download me-1"></i> Exportar
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                                <li>
+                                                    <button class="dropdown-item" id="btnExportAllCsv">
+                                                        <i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i> Exportar Lista (.CSV)
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item" id="btnExportAvailableCsv">
+                                                        <i class="bi bi-file-earmark-check me-2 text-success"></i> Exportar Apenas Disponíveis (.CSV)
+                                                    </button>
+                                                </li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <button class="dropdown-item" id="btnCopyAvailable">
+                                                        <i class="bi bi-clipboard me-2 text-info"></i> Copiar Disponíveis para Área de Transferência
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Table Content -->
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" id="resultsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th scope="col" style="width: 45px;" class="text-center">#</th>
+                                            <th scope="col" style="width: 130px;" class="sortable-th cursor-pointer" data-sort="status">
+                                                Status <i class="bi bi-arrow-down-up text-muted small ms-1 sort-icon"></i>
+                                            </th>
+                                            <th scope="col" class="sortable-th cursor-pointer" data-sort="domain">
+                                                Domínio <i class="bi bi-arrow-down-up text-muted small ms-1 sort-icon"></i>
+                                            </th>
+                                            <th scope="col" class="sortable-th cursor-pointer" data-sort="tld">
+                                                Extensão <i class="bi bi-arrow-down-up text-muted small ms-1 sort-icon"></i>
+                                            </th>
+                                            <th scope="col" class="sortable-th cursor-pointer" data-sort="category">
+                                                Categoria <i class="bi bi-arrow-down-up text-muted small ms-1 sort-icon"></i>
+                                            </th>
+                                            <th scope="col" class="sortable-th cursor-pointer" data-sort="registrar">
+                                                Registrador <i class="bi bi-arrow-down-up text-muted small ms-1 sort-icon"></i>
+                                            </th>
+                                            <th scope="col" class="text-end" style="width: 170px;">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="resultsTableBody">
+                                        <!-- Rows inserted dynamically by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Empty Filter State -->
+                            <div id="noResultsFiltered" class="text-center py-5 d-none">
+                                <i class="bi bi-funnel text-muted display-6 mb-2"></i>
+                                <p class="text-muted mb-0">Nenhum domínio corresponde aos filtros selecionados.</p>
+                            </div>
+
+                            <!-- Pagination Footer -->
+                            <div class="card-footer bg-white p-3 border-top d-flex flex-wrap gap-2 justify-content-between align-items-center" id="paginationFooter">
+                                <div class="small text-muted" id="paginationInfo">
+                                    Exibindo 0 de 0 domínios
+                                </div>
+                                <nav aria-label="Navegação da tabela">
+                                    <ul class="pagination pagination-sm mb-0" id="paginationContainer">
+                                        <!-- Pagination buttons inserted by JS -->
+                                    </ul>
+                                </nav>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Detalhes Completos do WHOIS -->
+    <div class="modal fade" id="whoisDetailModal" tabindex="-1" aria-labelledby="whoisDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+
+                <div class="modal-header bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle-fill text-primary fs-5"></i>
+                        <h5 class="modal-title fw-bold" id="whoisDetailModalLabel">Detalhes WHOIS: <span id="modalDomainName"></span></h5>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="modalDomainBadge" class="badge"></span>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                </div>
+
+                <div class="modal-body p-4">
+
+                    <!-- Section 1: Titular -->
+                    <div class="card border rounded-3 mb-3 bg-light-subtle">
+                        <div class="card-header bg-white fw-semibold d-flex align-items-center gap-2">
+                            <i class="bi bi-person-badge text-primary"></i>
+                            <span>Titular & Proprietário</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Razão Social / Nome:</span>
+                                    <span class="fw-bold text-dark fs-6" id="modalOwnerName">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Documento Oficial:</span>
+                                    <span class="badge bg-secondary-subtle text-secondary border font-monospace" id="modalOwnerId">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Pessoa Responsável:</span>
+                                    <span class="text-dark" id="modalPerson">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Localização:</span>
+                                    <span class="text-dark" id="modalLocation">-</span>
+                                </div>
+                                <div class="col-12">
+                                    <span class="text-muted small d-block">E-mails de Contato / Notificação:</span>
+                                    <div class="text-dark font-monospace small" id="modalEmails">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Registrador & Servidores DNS -->
+                    <div class="card border rounded-3 mb-3 bg-light-subtle">
+                        <div class="card-header bg-white fw-semibold d-flex align-items-center gap-2">
+                            <i class="bi bi-hdd-network text-success"></i>
+                            <span>Registrador Oficial & Servidores DNS</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Registrador Oficial:</span>
+                                    <span class="fw-bold text-dark" id="modalRegistrar">-</span>
+                                    <a href="#" target="_blank" class="small ms-1" id="modalRegistrarUrl" style="display: none;">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Servidor WHOIS:</span>
+                                    <span class="font-monospace text-secondary small" id="modalWhoisServer">-</span>
+                                </div>
+                                <div class="col-12">
+                                    <span class="text-muted small d-block mb-1">Servidores DNS Autorizados:</span>
+                                    <div id="modalNameServers" class="d-flex flex-wrap gap-1">
+                                        <span class="badge bg-light text-muted border">Nenhum</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">Status EPP:</span>
+                                    <div id="modalStatusEpp" class="d-flex flex-wrap gap-1">
+                                        <span class="text-muted small">-</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="text-muted small d-block">DNSSEC:</span>
+                                    <span class="text-dark font-monospace small" id="modalDnssec">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Ciclo de Vida -->
+                    <div class="card border rounded-3 mb-3 bg-light-subtle">
+                        <div class="card-header bg-white fw-semibold d-flex align-items-center gap-2">
+                            <i class="bi bi-calendar-event text-warning"></i>
+                            <span>Ciclo de Vida do Domínio (Datas)</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3 text-center">
+                                <div class="col-4">
+                                    <span class="text-muted small d-block">Data de Criação:</span>
+                                    <span class="fw-bold fs-6 text-dark" id="modalCreationDate">-</span>
+                                </div>
+                                <div class="col-4">
+                                    <span class="text-muted small d-block">Última Atualização:</span>
+                                    <span class="fw-bold fs-6 text-dark" id="modalUpdatedDate">-</span>
+                                </div>
+                                <div class="col-4">
+                                    <span class="text-muted small d-block">Data de Expiração:</span>
+                                    <span class="fw-bold fs-6 text-danger" id="modalExpirationDate">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Texto Bruto WHOIS -->
+                    <div class="accordion" id="accordionRawWhois">
+                        <div class="accordion-item border rounded-3">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2 small fw-medium" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseRaw">
+                                    <i class="bi bi-code-square me-2 text-secondary"></i> Ver Resposta Bruta do Servidor WHOIS
+                                </button>
+                            </h2>
+                            <div id="collapseRaw" class="accordion-collapse collapse" data-bs-parent="#accordionRawWhois">
+                                <div class="accordion-body p-2 bg-dark">
+                                    <pre class="text-light font-monospace small mb-0 p-2" id="modalRawText"
+                                        style="max-height: 250px; overflow-y: auto; white-space: pre-wrap; font-size: 0.78rem;"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopyModalDomain">
+                        <i class="bi bi-clipboard me-1"></i> Copiar Domínio
+                    </button>
+                    <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success" id="btnModalRegister" style="display: none;">
+                        <i class="bi bi-bag-plus me-1"></i> Comprar Domínio
+                    </a>
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast align-items-center text-bg-dark border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">
+                    Mensagem copiada!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-muted py-4 mt-5 border-top small bg-white">
+        <div class="container">
+            <p class="mb-1">DomainFinder &bull; Backend Rust + Tokio &bull; Frontend Bootstrap 5</p>
+            <p class="mb-0 text-secondary">Consultas TCP socket direto na porta 43 e RDAP de alta velocidade</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/static/js/busca_unica.js?v=20261029_02"></script>
+</body>
+
+</html>
